@@ -1,8 +1,10 @@
 ---
 title: "usgs_13296000"
-author: "Tao Huang"
-date: `r Sys.Date()`
-output: html_document
+#author: "Tao Huang"
+#date: `r Sys.Date()`
+output:
+  pdf_document: default
+  html_document: default
 ---
 
 # Step 0: Load packages
@@ -56,29 +58,9 @@ library("timetk")
 
 # Step 1: Load PRISM and USGS
 ```{r}
-prism_df<-readRDS(" .rds")
+prism_df<-readRDS("prism_df_13296000.rds")
 summary(prism_df)
 ```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# Step 1: load the packages
-# Step 2: Read PRISM data
-# Step 3: Load USGS data
-
-
-
 
 ```{r}
 prism_df2<-prism_df
@@ -89,53 +71,48 @@ max_ST_yr[max_ST_yr$mo %in% c("6",  "7" , "8","9"),]
 boxplot(max_ST_yr[max_ST_yr$mo %in% c("6",  "7" , "8","9"),]$mean_ST~max_ST_yr[max_ST_yr$mo %in% c("6",  "7" , "8","9"),]$mo, ylab = "Monthly mean stream T (degC)", xlab="Month", main="YANKEE FORK SALMON RIVER NR CLAYTON ID")
 ```
 
-
-
-
-
-
-
-
-
-
-
-
-# Step 5: specify year and month for analysis
+Check missing data
 ```{r}
-prism_df<-prism_df[   prism_df$mo %in% c(7,8),]
-summary(prism_df)
+table(prism_df[prism_df$mo  %in% c(6,7,8),]$yr)
+prism_df<-prism_df[!prism_df$yr %in% c(2017,2021,2022),]
+table(prism_df[prism_df$mo  %in% c(6,7,8),]$yr)
 ```
 
-# Step 6: Create the correlation plot
+# Step 2: Model 0
+## site_id<-  13296000 (USGS 13296000 YANKEE FORK SALMON RIVER NR CLAYTON ID)
+## Specify year and month for analysis: c(6)
+## Specify variables<-c("mean_StreamTemp" ,"log_mean_Q", "mean_AirTemperature_C" )
+## v<-"Q_T"
 ```{r}
-prism_df ->daily_df_summer
-daily_df_summer$log_median_Q<-daily_df_summer$log_mean_Q
+site_id<- 13296000
+name<-"USGS 13296000 YANKEE FORK SALMON RIVER NR CLAYTON ID"
+daily_df_summer<-prism_df[prism_df$mo %in% c(6),]
+# Create the correlation plot
 M <-cor( daily_df_summer[,c("mean_StreamTemp"
-#                            ,"max_StreamTemp"      
-,"log_mean_Q","mean_AirTemperature_C","mean_AirTemperature_C_1","max_AirTemperature_C_1","max_AirTemperature_C","vpdmax","doy")])
-M
-corrplot(M, type="upper", order="hclust",
-         col=brewer.pal(n=8, name="RdYlBu"))
-M_1 <-cor( daily_df_summer[,c("mean_StreamTemp" ,"log_mean_Q","mean_AirTemperature_C")])
+                            ,"max_StreamTemp"      
+                        ,"log_mean_Q"
+                        ,"mean_AirTemperature_C"
+          ,"mean_AirTemperature_C_1"
+          ,"max_AirTemperature_C_1"
+     ,"max_AirTemperature_C"
+     ,"vpdmax"
+     #,"doy"
+     )])
+variables<-c("mean_StreamTemp" ,"log_mean_Q", "mean_AirTemperature_C" )
+v<-"Q_T"
+  
+M_1 <-cor( daily_df_summer[, variables ])
 corrplot(M_1, type="upper", order="hclust",
          col=brewer.pal(n=8, name="RdYlBu"))
-```
-
-# Model 2: GBM
-```{r}
 # set seed for generating random data.
-set.seed(0)          
+set.seed(0)
 # createDataPartition() function from the caret package to split the original dataset into a training and testing set and split data into training (80%) and testing set (20%)
-variables<-c("mean_StreamTemp","mean_AirTemperature_C","log_mean_Q" )
 parts = createDataPartition(  daily_df_summer$mean_StreamTemp , p = .8, list = F)
 train = daily_df_summer[parts, variables ]
 test =  daily_df_summer[-parts, variables  ]
 # feature and target array
 test_x = test[, -1] 
 test_y = test[, 1] 
-```
-
-```{r}
 model_gbm = gbm(train$mean_StreamTemp      ~.,
                 data = train,
                 distribution = "gaussian",
@@ -143,34 +120,22 @@ model_gbm = gbm(train$mean_StreamTemp      ~.,
                 shrinkage = .01,
                 n.minobsinnode = 10,
                 n.trees = 800)
- 
 # model performance
 perf_gbm1 = gbm.perf( model_gbm, method = "cv")
-print(model_gbm)
-summary(model_gbm)
 rinf<-summary(model_gbm)
-barplot( rinf$rel.inf , horiz = TRUE, las = 1)
-ggplot(rinf, aes(rel.inf)) + geom_bar()
 rinf$max_yr<-max(as.numeric(daily_df_summer$yr))
 rinf$min_yr<-min(as.numeric(daily_df_summer$yr))
-rinf$site_id<- 13296000
+rinf$max_mo<-max(as.numeric(daily_df_summer$mo))
+rinf$min_mo<-min(as.numeric(daily_df_summer$mo))
+rinf$site_id<- site_id
 rinf
-saveRDS(rinf ,file=  "rinf_13296000.rds"  )
-```
-
-```{r}
-rinf$var<- factor(rinf$var, levels=c(  "mean_AirTemperature_C","log_mean_Q"  ))
-ggplot( rinf, aes( var , rel.inf ))+  geom_col()+ 
-  coord_flip()
-ggplot( rinf )+  geom_bar(  aes( x=var, y= rel.inf),  stat = "summary")+ scale_x_discrete(labels=  c( "mean_AirTemperature_C","log_mean_Q") )+ylab("Relative importance (%)") +xlab(" ")  + theme(text=element_text(size=16))
-```
-
-```{r}
+saveRDS(rinf ,file=   paste("rinf",site_id,rinf$min_mo[1],rinf$max_mo[1],v,".rds",sep="_")  )
+rinf$var<- factor(rinf$var, levels=c(  variables[-1]  ))
+ggplot( rinf )+  geom_bar(  aes( x=var, y= rel.inf),  stat = "summary")+ scale_x_discrete(labels=  variables[-1] )+ylab("Relative importance (%)") +xlab(" ")  + theme(text=element_text(size=16))
 #test_y <-test_y$max_StreamTemp
 pred_y = predict.gbm(model_gbm, test_x)
 residuals =  test_y   - pred_y
-summary(test_y )
-xlim=c(5,20)
+xlim=c(min(test_y)-5,max(test_y)+5)
 RMSE = sqrt(mean(residuals^2))
 cat('The root mean square error of the test data is ', round(RMSE,3),'\n')
 y_test_mean = mean( test_y  )
@@ -181,40 +146,29 @@ rss =  sum(residuals^2)
 # Calculate R-squared
 rsq  =  1 - (rss/tss)
 cat('The R-square of the test data is ', round(rsq,3), '\n')
-# visualize the model, actual and predicted data
-x_ax = 1:length(pred_y)
-plot(x_ax, test_y  , col="blue", pch=20, cex=.9)
-lines(x_ax, pred_y, col="red", pch=20, cex=.9) 
-plot(  test_y , pred_y,xlim= xlim ,ylim= xlim, xlab="Observed stream temperature (degC)", ylab="Predicted stream temperature (degC)", main="YANKEE FORK SALMON RIVER NR CLAYTON ID")
+plot(  test_y , pred_y,xlim= xlim ,ylim= xlim, xlab="Observed stream temperature (degC)", ylab="Predicted stream temperature (degC)", main= name)
 par(new=T)
-x=seq(1,30)
+x=c(min(test_y)-10,max(test_y)+10)
 plot(x,x,type="l",xlim= xlim ,ylim= xlim,xlab="",ylab="")
-```
-
-```{r}
-# ts function is responsible to convert to ts object
-daily_df_summer_2017<-daily_df_summer[daily_df_summer$yr==2020,]
-ts <- ts(data = daily_df_summer_2017[, c( "mean_AirTemperature_C",  "mean_StreamTemp" )], # selecting 2 variables
+length(variables)
+model_gbm %>%
+  pdp::partial(pred.var =  variables[2], n.trees = model_gbm$n.trees, grid.resolution = 100)%>%
+  autoplot(rug = TRUE, train = train)+theme(axis.text=element_text(size=21),
+        axis.title=element_text(size=24))
+model_gbm %>%
+  pdp::partial(pred.var =  variables[3], n.trees = model_gbm$n.trees, grid.resolution = 100)%>%
+  autoplot(rug = TRUE, train = train)+theme(axis.text=element_text(size=21),
+        axis.title=element_text(size=24))
+unique(daily_df_summer$yr)
+yr=2020
+ts <- ts(data = daily_df_summer[daily_df_summer$yr ==yr, c( "mean_AirTemperature_C",  "mean_StreamTemp" )],  
    start = 1,
-   end =  dim(daily_df_summer_2017)[1],
+   end =  dim(daily_df_summer[daily_df_summer$yr ==yr, ])[1],
    frequency = 1)
-ts
-```
-
-```{r}
 ts_plot( ts,
-        title = "YANKEE FORK SALMON RIVER NR CLAYTON ID",
+        title =  name,
         Ytitle =    "mean StreamTemp",
         Xtitle = " ", )
-```
-
-```{r}
-# ccf time series
-par(mfrow=c(1,1))
-ccf( ts[, c( "mean_StreamTemp")],  ts[, c( "mean_AirTemperature_C")], 
-    lag.max = 11,
-    main = "Cros-Correlation Plot",
-    ylab = "CCF")
 # ccf time series
 par(mfrow=c(1,1))
 ccf( ts[, c( "mean_AirTemperature_C")],  ts[, c( "mean_StreamTemp")], 
@@ -224,7 +178,102 @@ ccf( ts[, c( "mean_AirTemperature_C")],  ts[, c( "mean_StreamTemp")],
 ```
 
 
-
-
-
+# Step 2: Model 1
+## site_id<-  13296000 (USGS 13296000 YANKEE FORK SALMON RIVER NR CLAYTON ID)
+## Specify year and month for analysis: c(7,8)
+## Specify variables<-c("mean_StreamTemp" ,"log_mean_Q", "mean_AirTemperature_C" )
+## v<-"Q_T"
+```{r}
+site_id<- 13296000
+name<-"USGS 13296000 YANKEE FORK SALMON RIVER NR CLAYTON ID"
+daily_df_summer<-prism_df[prism_df$mo %in% c(7,8),]
+# Create the correlation plot
+M <-cor( daily_df_summer[,c("mean_StreamTemp"
+                            ,"max_StreamTemp"      
+                        ,"log_mean_Q"
+                        ,"mean_AirTemperature_C"
+          ,"mean_AirTemperature_C_1"
+          ,"max_AirTemperature_C_1"
+     ,"max_AirTemperature_C"
+     ,"vpdmax"
+     #,"doy"
+     )])
+variables<-c("mean_StreamTemp" ,"log_mean_Q", "mean_AirTemperature_C" )
+v<-"Q_T"
+  
+M_1 <-cor( daily_df_summer[, variables ])
+corrplot(M_1, type="upper", order="hclust",
+         col=brewer.pal(n=8, name="RdYlBu"))
+# set seed for generating random data.
+set.seed(0)
+# createDataPartition() function from the caret package to split the original dataset into a training and testing set and split data into training (80%) and testing set (20%)
+parts = createDataPartition(  daily_df_summer$mean_StreamTemp , p = .8, list = F)
+train = daily_df_summer[parts, variables ]
+test =  daily_df_summer[-parts, variables  ]
+# feature and target array
+test_x = test[, -1] 
+test_y = test[, 1] 
+model_gbm = gbm(train$mean_StreamTemp      ~.,
+                data = train,
+                distribution = "gaussian",
+                cv.folds = 10,
+                shrinkage = .01,
+                n.minobsinnode = 10,
+                n.trees = 800)
+# model performance
+perf_gbm1 = gbm.perf( model_gbm, method = "cv")
+rinf<-summary(model_gbm)
+rinf$max_yr<-max(as.numeric(daily_df_summer$yr))
+rinf$min_yr<-min(as.numeric(daily_df_summer$yr))
+rinf$max_mo<-max(as.numeric(daily_df_summer$mo))
+rinf$min_mo<-min(as.numeric(daily_df_summer$mo))
+rinf$site_id<- site_id
+rinf
+saveRDS(rinf ,file=   paste("rinf",site_id,rinf$min_mo[1],rinf$max_mo[1],v,".rds",sep="_")  )
+rinf$var<- factor(rinf$var, levels=c(  variables[-1]  ))
+ggplot( rinf )+  geom_bar(  aes( x=var, y= rel.inf),  stat = "summary")+ scale_x_discrete(labels=  variables[-1] )+ylab("Relative importance (%)") +xlab(" ")  + theme(text=element_text(size=16))
+#test_y <-test_y$max_StreamTemp
+pred_y = predict.gbm(model_gbm, test_x)
+residuals =  test_y   - pred_y
+xlim=c(min(test_y)-5,max(test_y)+5)
+RMSE = sqrt(mean(residuals^2))
+cat('The root mean square error of the test data is ', round(RMSE,3),'\n')
+y_test_mean = mean( test_y  )
+# Calculate total sum of squares
+tss =  sum(( test_y   - y_test_mean)^2 )
+# Calculate residual sum of squares
+rss =  sum(residuals^2)
+# Calculate R-squared
+rsq  =  1 - (rss/tss)
+cat('The R-square of the test data is ', round(rsq,3), '\n')
+plot(  test_y , pred_y,xlim= xlim ,ylim= xlim, xlab="Observed stream temperature (degC)", ylab="Predicted stream temperature (degC)", main= name)
+par(new=T)
+x=c(min(test_y)-10,max(test_y)+10)
+plot(x,x,type="l",xlim= xlim ,ylim= xlim,xlab="",ylab="")
+length(variables)
+model_gbm %>%
+  pdp::partial(pred.var =  variables[2], n.trees = model_gbm$n.trees, grid.resolution = 100)%>%
+  autoplot(rug = TRUE, train = train)+theme(axis.text=element_text(size=21),
+        axis.title=element_text(size=24))
+model_gbm %>%
+  pdp::partial(pred.var =  variables[3], n.trees = model_gbm$n.trees, grid.resolution = 100)%>%
+  autoplot(rug = TRUE, train = train)+theme(axis.text=element_text(size=21),
+        axis.title=element_text(size=24))
+unique(daily_df_summer$yr)
+yr=2020
+ts <- ts(data = daily_df_summer[daily_df_summer$yr ==yr, c( "mean_AirTemperature_C",  "mean_StreamTemp" )],  
+   start = 1,
+   end =  dim(daily_df_summer[daily_df_summer$yr ==yr, ])[1],
+   frequency = 1)
+ts_plot( ts,
+        title =  name,
+        Ytitle =    "mean StreamTemp",
+        Xtitle = " ", )
+# ccf time series
+par(mfrow=c(1,1))
+ccf( ts[, c( "mean_AirTemperature_C")],  ts[, c( "mean_StreamTemp")], 
+    lag.max = 11,
+    main = "Cros-Correlation Plot",
+    ylab = "CCF")
+```
 
