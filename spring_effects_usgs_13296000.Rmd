@@ -1,0 +1,119 @@
+---
+title: "USGS 13296000 YANKEE FORK SALMON RIVER NR CLAYTON ID"
+output: html_document
+---
+
+```{r}
+library("lubridate")
+library(data.table)
+library(dplyr) # for data wrangling and pipelines
+library(ggplot2) # for modifying fasstr plots
+```
+
+
+HOW DO MONTHLY SPRING STREAMFLOW, SUMMER PRECIP AFFECT SUMMER STREAMFLOW?
+```{r}
+daily_df<-readRDS("prism_df_13296000.rds")
+daily_df$year<-year(daily_df$Date )
+daily_df$mo<-month(daily_df$Date)
+
+
+daily_df$doy<- yday(daily_df$Date)
+daily_df<-daily_df[,c("log_mean_Q"
+                      ,"mean_StreamTemp"
+                      ,"mean_AirTemperature_C"
+                      ,"year"
+                      ,"mo"
+                      ,"doy")]
+summary(daily_df)
+table(daily_df[daily_df$mo %in% c(3,4,5,7,8),]$year)
+```
+
+```{r}
+plot(daily_df[daily_df$yr==2015,]$doy,daily_df[daily_df$yr==2015,]$mean_Discharge)
+```
+
+
+# spring, group by year
+```{r}
+df3<-daily_df[daily_df$yr %in% c(2012 ,2013 ,2014, 2015, 2016,2018 ,2019, 2020),]
+df3<-daily_df
+grp <- c('yr','mo')
+#df4 = df3[df3$mo %in% c(3,4,5) ,] %>% group_by( across(all_of(grp)) )  %>%   summarize(max_Q = max( mean_Discharge))
+##  mutate(max_Q = max( mean_Discharge) ) #%>% 
+#  ungroup()
+#df4
+df5 = df3[df3$mo %in% c(3,4,5) ,] %>% group_by(  year )  %>% 
+  summarize( mean_Q = mean( log_mean_Q))
+df5
+df6 = df3[df3$mo %in% c(7,8) ,] %>% group_by(  year )  %>% 
+  summarize( mean_summer_Q = mean( log_mean_Q)
+             , mean_summer_ST=mean(mean_StreamTemp )
+             , mean_summer_AT=mean(mean_AirTemperature_C  )  )
+df6$yr1<-df6$year
+df7<-cbind(df5,df6[,-1])
+df7
+
+
+```
+
+```{r}
+#plot(log(df7$mean_Q),log(df7$mean_summer_Q))
+
+ggplot( df7, aes( log( mean_Q), log( mean_summer_Q) ,   color=year  )) +
+  geom_point( size=9) +
+  geom_smooth(method = "glm")+ylab("log(summer streamflow)") +xlab("log(spring streamflow)")  + theme(text=element_text(size=16))
+
+#plot(df7$mean_summer_Q, df7$mean_summer_ST)
+
+ggplot( df7, aes( log( mean_summer_Q),   mean_summer_ST  ,   color=year  )) +
+  geom_point( size=9) +
+  geom_smooth(method = "glm")+xlab("log(summer streamflow)") +ylab("Summer stream temperature")  + theme(text=element_text(size=16))
+
+#plot(df7$mean_summer_AT, df7$mean_summer_ST)
+
+ggplot( df7, aes( mean_summer_AT,   mean_summer_ST  ,   color=year  )) +
+  geom_point( size=9) +
+  geom_smooth(method = "glm")+xlab("Summer air temperature)") +ylab("Summer stream temperature")  + theme(text=element_text(size=16))
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+
+
+met_df2<-readRDS("BRW_met_df2.rds")
+met_df2<-met_df2[met_df2$Precipitation_mm>-0.9,]
+summary(met_df2)
+met_df2$yr<-year(met_df2$DateTime)
+plot(met_df2[met_df2$yr==2020,]$DateTime,met_df2[met_df2$yr==2020,]$Precipitation_mm)
+plot(met_df2[met_df2$yr==2019,]$DateTime,met_df2[met_df2$yr==2020,]$Precipitation_mm)
+```
+
+```{r}
+plot(met_df2[met_df2$yr==2020,]$DateTime,met_df2[met_df2$yr==2020,]$Precipitation_mm)
+plot(met_df2[met_df2$yr==2018,]$DateTime,met_df2[met_df2$yr==2018,]$Precipitation_mm)
+```
+
+
+
+
+
+
+
+
