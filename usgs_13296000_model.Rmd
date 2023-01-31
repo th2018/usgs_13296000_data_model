@@ -51,7 +51,7 @@ library(tsibble)
 library(TSstudio)
 library(plotly)
 # third approach
-library(tidyverse)
+library("tidyverse")
 # install.packages("timetk")
 library("timetk")
 ```
@@ -332,8 +332,10 @@ rinf$site_id<- site_id
 rinf
 saveRDS(rinf ,file=   paste("rinf",site_id,rinf$min_mo[1],rinf$max_mo[1],v,".rds",sep="_")  )
 rinf$var<- factor(rinf$var, levels=c(  variables[-1]  ))
-ggplot( rinf )+  geom_bar(  aes( x=var, y= rel.inf),  stat = "summary")+ scale_x_discrete(labels=  variables[-1] )+ylab("Relative importance (%)") +xlab(" ")  + theme(text=element_text(size=16))
+ggplot( rinf )+  geom_bar(  aes( x=var, y= rel.inf),  stat = "summary")+ scale_x_discrete(labels=  #variables[-1]
+c("log(streamflow)", "Air Temperature")                                                                                           )+ylab("Relative importance (%)") +xlab(" ")  + theme(text=element_text(size=16))+ theme(text=element_text(size=19))
 #test_y <-test_y$max_StreamTemp
+
 pred_y = predict.gbm(model_gbm, test_x)
 residuals =  test_y   - pred_y
 xlim=c(min(test_y)-5,max(test_y)+5)
@@ -347,19 +349,29 @@ rss =  sum(residuals^2)
 # Calculate R-squared
 rsq  =  1 - (rss/tss)
 cat('The R-square of the test data is ', round(rsq,3), '\n')
-plot(  test_y , pred_y,xlim= xlim ,ylim= xlim, xlab="Observed stream temperature (degC)", ylab="Predicted stream temperature (degC)", main= name)
+
+plot(  test_y , pred_y,xlim= xlim ,ylim= xlim, xlab="Observed stream temperature (degC)", ylab="Predicted stream temperature (degC)", main= name, cex.lab=1.4, cex.axis=1.4)
 par(new=T)
 x=c(min(test_y)-10,max(test_y)+10)
-plot(x,x,type="l",xlim= xlim ,ylim= xlim,xlab="",ylab="")
+plot(x,x,type="l",xlim= xlim ,ylim= xlim,xlab="",ylab="",  axes=FALSE)
+ggplot() + 
+geom_point(data=data.frame(cbind( test_y , pred_y)), mapping=aes(x=pred_y , y=test_y
+                                                                 #,     size=10
+)) +geom_abline(slope=1, intercept= 0)
+
+
 length(variables)
+
 model_gbm %>%
   pdp::partial(pred.var =  variables[2], n.trees = model_gbm$n.trees, grid.resolution = 100)%>%
   autoplot(rug = TRUE, train = train)+theme(axis.text=element_text(size=21),
-        axis.title=element_text(size=24))
+        axis.title=element_text(size=24))+xlab("log(streamflow)")+ggtitle(name)
+
 model_gbm %>%
   pdp::partial(pred.var =  variables[3], n.trees = model_gbm$n.trees, grid.resolution = 100)%>%
   autoplot(rug = TRUE, train = train)+theme(axis.text=element_text(size=21),
-        axis.title=element_text(size=24))
+        axis.title=element_text(size=24)) +xlab("Air temperature")+ggtitle(name)
+
 unique(daily_df_summer$yr)
 yr=2020
 ts <- ts(data = daily_df_summer[daily_df_summer$yr ==yr, c( "mean_AirTemperature_C",  "mean_StreamTemp" )],  
