@@ -3,6 +3,10 @@ title: "usgs_13296000"
 output: html_document
 ---
 
+```{r}
+st_all_gage<-c("13296000")
+```
+
 # Step 1: load the packages
 # Step 2: Read PRISM data
 # Step 3: Load USGS data
@@ -12,47 +16,47 @@ output: html_document
 # install.packages("dataRetrieval")
 #library(dataRetrieval) # for getting USGS NWIS data
 # install.packages("tidyhydat")
-library(tidyhydat) # for getting ECCC HYDAT data
-# download_hydat()
-library(dplyr) # for data wrangling and pipelines
-library(ggplot2) # for modifying fasstr plots
-library("dplyr")
-#install.packages('corrplot')
-library(corrplot)
-library(RColorBrewer)
-# install.packages("gbm")
-library("gbm")
-# install.packages("caret")
-library("caret")
-#install.packages("pdp")
-library("pdp")          # model visualization
-library("ggplot2")      # model visualization
-#install.packages("lime")
-library("lime")         # model visualization
-library("pROC")
-#install.packages("e1071", repos="http://R-Forge.R-project.org")
-library("e1071")
-library( "MASS" )    #    used to generate correlated variables
-library("sp")
-library("Hmisc")    #   used for graphing se bars
-#install.packages("randomForest")
-require("randomForest")
-#install.packages("e1071")
-library(e1071)
-library(caret)
-library("ModelMetrics")
-library("foreign")
-#install.packages("rfUtilities")
-library("rfUtilities")
-library("lubridate")
-#  install.packages("feasts")
-library(feasts)
-library(tsibble)
+# library(tidyhydat) # for getting ECCC HYDAT data
+# # download_hydat()
+# library(dplyr) # for data wrangling and pipelines
+# library(ggplot2) # for modifying fasstr plots
+# library("dplyr")
+# #install.packages('corrplot')
+# library(corrplot)
+# library(RColorBrewer)
+# # install.packages("gbm")
+# library("gbm")
+# # install.packages("caret")
+# library("caret")
+# #install.packages("pdp")
+# library("pdp")          # model visualization
+# library("ggplot2")      # model visualization
+# #install.packages("lime")
+# library("lime")         # model visualization
+# library("pROC")
+# #install.packages("e1071", repos="http://R-Forge.R-project.org")
+# library("e1071")
+# library( "MASS" )    #    used to generate correlated variables
+# library("sp")
+# library("Hmisc")    #   used for graphing se bars
+# #install.packages("randomForest")
+# require("randomForest")
+# #install.packages("e1071")
+# library(e1071)
+# library(caret)
+# library("ModelMetrics")
+# library("foreign")
+# #install.packages("rfUtilities")
+# library("rfUtilities")
+# library("lubridate")
+# #  install.packages("feasts")
+# library(feasts)
+# library(tsibble)
 #  install.packages("TSstudio")
 #library(TSstudio)
 #library(plotly)
 # third approach
-library(tidyverse)
+#library(tidyverse)
 # install.packages("timetk")
 #library("timetk")
 ```
@@ -66,7 +70,8 @@ summary(prism)
 
 # Step 3: Load USGS data
 ```{r}
-st_all_gage<-c("13296000")
+
+
 #create empty tables
 meanSummerT_df<-data.frame(
   agency_cd= " ",
