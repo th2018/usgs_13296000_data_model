@@ -14,20 +14,30 @@ st_all_gage<-c("13296000")
 # Step 1: load the packages
 ```{r include=FALSE}
 # install.packages("dataRetrieval")
-#library(dataRetrieval) # for getting USGS NWIS data
+library("dataRetrieval") # for getting USGS NWIS data
+library("lubridate")
+library("dplyr") # for data wrangling and pipelines
+# #install.packages('corrplot')
+library("corrplot")
+library("caret")
+library("RColorBrewer")
+# # install.packages("gbm")
+library("gbm")
+#  install.packages("TSstudio")
+library("TSstudio")
+
 # install.packages("tidyhydat")
 # library(tidyhydat) # for getting ECCC HYDAT data
 # # download_hydat()
-# library(dplyr) # for data wrangling and pipelines
+
+
 # library(ggplot2) # for modifying fasstr plots
-# library("dplyr")
-# #install.packages('corrplot')
-# library(corrplot)
-# library(RColorBrewer)
-# # install.packages("gbm")
-# library("gbm")
-# # install.packages("caret")
-# library("caret")
+
+
+
+
+
+
 # #install.packages("pdp")
 # library("pdp")          # model visualization
 # library("ggplot2")      # model visualization
@@ -43,17 +53,19 @@ st_all_gage<-c("13296000")
 # require("randomForest")
 # #install.packages("e1071")
 # library(e1071)
-# library(caret)
+
+
 # library("ModelMetrics")
 # library("foreign")
 # #install.packages("rfUtilities")
 # library("rfUtilities")
-# library("lubridate")
+
+
 # #  install.packages("feasts")
 # library(feasts)
 # library(tsibble)
-#  install.packages("TSstudio")
-#library(TSstudio)
+
+
 #library(plotly)
 # third approach
 #library(tidyverse)
@@ -63,15 +75,16 @@ st_all_gage<-c("13296000")
 
 # Step 2: Read PRISM data
 ```{r}
-prism<-read.csv("PRISM_ppt_tmin_tmean_tmax_tdmean_vpdmin_vpdmax.csv")
+siteINFO <- readNWISsite( st_all_gage )
+print(c(siteINFO$dec_lat_va,siteINFO$dec_long_va))
+#prism<-read.csv("PRISM_ppt_tmin_tmean_tmax_tdmean_vpdmin_vpdmax.csv")
+prism<-read.csv("prism_1981_2023_44.2789_114.7339.csv")
 prism$Date <-as.Date(prism$Date, format="%Y-%m-%d")
 summary(prism)
 ```
 
 # Step 3: Load USGS data
 ```{r}
-
-
 #create empty tables
 meanSummerT_df<-data.frame(
   agency_cd= " ",
@@ -96,8 +109,8 @@ for (id in st_all_gage) {
   #statCd <- c("00003") 
   #00001 max
   #00003 mean
-  startDate <- "2011-10-01"
-  endDate <- "2022-09-30"
+  startDate <- "1981-10-01"
+  endDate <- "2023-09-30"
   meanT <-readNWISdv(siteNumber, parameterCd,startDate, endDate, statCd= c("00001","00003"))
   if (dim(meanT )[2]>5){
     meanT$yr<- format(meanT$Date, format = "%Y") 
@@ -119,7 +132,9 @@ summary(df)
 ```
 
 ```{r}
-df<-readRDS("USGS_13296000_ST_Q.rds")
+#saveRDS( df, file="USGS_13296000_ST_Q_2011_2023.rds")
+#df<-readRDS("USGS_13296000_ST_Q.rds")
+df<-readRDS("USGS_13296000_ST_Q_2011_2023.rds")
 summary(df)
 ```
 
@@ -144,7 +159,9 @@ prism_df[ i,]$mean_AirTemperature_C_1<-prism_df[ i-1 ,]$mean_AirTemperature_C
 prism_df$vpdmax..hPa.->prism_df$vpdmax
 prism_df$doy<-yday( prism_df$Date )
 prism_df$yr<-as.numeric(prism_df$yr)
-prism_df<-prism_df[,c("Date", "yr", "vpdmax", "mean_AirTemperature_C","mean_AirTemperature_C_1", "max_AirTemperature_C", "max_AirTemperature_C_1","log_mean_Q", "max_StreamTemp", "mean_StreamTemp","mo","doy")]
+prism_df<-prism_df[,c("Date", "yr", "vpdmax", "mean_AirTemperature_C","mean_AirTemperature_C_1" #, "max_AirTemperature_C"
+                      #, "max_AirTemperature_C_1"
+                      ,"log_mean_Q", "max_StreamTemp", "mean_StreamTemp","mo","doy")]
 summary(prism_df)
 ```
 
@@ -154,19 +171,20 @@ table( prism_df[prism_df$mo %in% c(6,7,8),]$yr)
 
 # Step 4: Load PRISM and USGS
 ```{r}
-prism_df<-prism_df[!prism_df$yr==c(2017,2021,2022),]
-saveRDS( prism_df, file="prism_df_13296000.rds")
+prism_df<-prism_df[!prism_df$yr==c(2017,2021,2022,2023),]
+saveRDS( prism_df, file="prism_df_13296000_2012_2020.rds")
 #prism_df<-readRDS("daily_df_summer_13311000.rds")
 summary(prism_df)
 ```
 
 ```{r}
+summer_months<-c("6","7","8")
 prism_df2<-prism_df
 prism_df2$yr<-as.character(prism_df$yr)
 prism_df2$mo<-as.character(prism_df$mo)
 max_ST_yr<-prism_df2 %>% group_by( yr ,  mo  )%>% summarise(max_ST = max(mean_StreamTemp),mean_ST=mean(mean_StreamTemp) )
-max_ST_yr[max_ST_yr$mo %in% c("6",  "7" , "8","9"),]
-boxplot(max_ST_yr[max_ST_yr$mo %in% c("6",  "7" , "8","9"),]$mean_ST~max_ST_yr[max_ST_yr$mo %in% c("6",  "7" , "8","9"),]$mo, ylab = "Monthly mean stream T (degC)", xlab="Month", main="YANKEE FORK SALMON RIVER NR CLAYTON ID")
+max_ST_yr[max_ST_yr$mo %in%  summer_months ,]
+boxplot(max_ST_yr[max_ST_yr$mo %in%  summer_months,]$mean_ST~max_ST_yr[max_ST_yr$mo %in%  summer_months,]$mo, ylab = "Monthly mean stream T (degC)", xlab="Month", main="YANKEE FORK SALMON RIVER NR CLAYTON ID")
 ```
 
 
@@ -182,7 +200,7 @@ boxplot(max_ST_yr[max_ST_yr$mo %in% c("6",  "7" , "8","9"),]$mean_ST~max_ST_yr[m
 
 # Step 5: specify year and month for analysis
 ```{r}
-prism_df<-prism_df[   prism_df$mo %in% c(7,8),]
+prism_df<-prism_df[   prism_df$mo %in%  summer_months,]
 summary(prism_df)
 ```
 
@@ -192,7 +210,8 @@ prism_df ->daily_df_summer
 daily_df_summer$log_median_Q<-daily_df_summer$log_mean_Q
 M <-cor( daily_df_summer[,c("mean_StreamTemp"
 #                            ,"max_StreamTemp"      
-,"log_mean_Q","mean_AirTemperature_C","mean_AirTemperature_C_1","max_AirTemperature_C_1","max_AirTemperature_C","vpdmax","doy")])
+,"log_mean_Q","mean_AirTemperature_C","mean_AirTemperature_C_1" #,"max_AirTemperature_C_1","max_AirTemperature_C"
+,"vpdmax","doy")])
 M
 corrplot(M, type="upper", order="hclust",
          col=brewer.pal(n=8, name="RdYlBu"))
@@ -222,7 +241,7 @@ model_gbm = gbm(train$mean_StreamTemp      ~.,
                 cv.folds = 10,
                 shrinkage = .01,
                 n.minobsinnode = 10,
-                n.trees = 800)
+                n.trees = 400)
  
 # model performance
 perf_gbm1 = gbm.perf( model_gbm, method = "cv")
@@ -289,6 +308,27 @@ ts_plot( ts,
 ```
 
 ```{r}
+summer_ts_2020<-daily_df_summer[daily_df_summer$yr==2020,]
+summer_ts_2020
+
+ylim=ylim(0,25)
+
+ggplot(summer_ts_2020[,c("Date","mean_AirTemperature_C")], aes( Date,mean_AirTemperature_C) ) +
+  geom_point(color = "red"   ) +
+  ylim+
+# geom_smooth()+
+ # stat_smooth()+
+  geom_point(data = summer_ts_2020[,c("Date","mean_StreamTemp") ], aes(x = Date  , y =  mean_StreamTemp) , color = "dodgerblue"  ) +
+ylim +
+  #stat_smooth()+
+ggtitle("YANKEE FORK SALMON RIVER NR CLAYTON ID")+
+  ylab("Temperature (degC)")+
+  labs()
+
+```
+
+
+```{r}
 # ccf time series
 par(mfrow=c(1,1))
 ccf( ts[, c( "mean_StreamTemp")],  ts[, c( "mean_AirTemperature_C")], 
@@ -302,9 +342,4 @@ ccf( ts[, c( "mean_AirTemperature_C")],  ts[, c( "mean_StreamTemp")],
     main = "Cros-Correlation Plot",
     ylab = "CCF")
 ```
-
-
-
-
-
 
